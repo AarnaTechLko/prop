@@ -9,7 +9,7 @@ import {
   tinyint,
   date,
   decimal,
-  
+  datetime,
 } from 'drizzle-orm/mysql-core';
 
 // Users Table
@@ -146,6 +146,11 @@ export const leads = mysqlTable("leads", {
   estimated_max_value: decimal("estimated_max_value", { precision: 15, scale: 2 })
 });
 
-
+export const leadtype = mysqlTable("leadtype", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull(),
+  status: int("status"), // optional field
+});
 
 
