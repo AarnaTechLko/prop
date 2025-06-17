@@ -41,25 +41,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-//   try {
-  
-//     const deleted = await db
-//       .delete(leads)
-
-//     return NextResponse.json({ success: true, message: 'Lead deleted successfully' });
-//   } catch (error) {
-//     console.error('❌ DELETE /api/lead/[id] error:', error);
-//     return NextResponse.json(
-//       {
-//         success: false,
-//         message: 'Error deleting lead',
-//         error: (error as Error).message,
-//       },
-//       { status: 500 }
-//     );
-//   }
-// }
 
 
 export async function DELETE(req: NextRequest) {
