@@ -29,7 +29,8 @@ export default function DashboardPage() {
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
-const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
 
   type TabKey = 'uploadLeads' | 'scoreFilter' | 'createLists' | 'market';
 
@@ -68,7 +69,7 @@ const [loading, setLoading] = useState(false);
         }));
         setLeads(parsed);
         setSelectedLeads([]);
-        // setSelectedTab("scoreFilter");
+        setSelectedTab("scoreFilter");
       },
     });
 
@@ -136,25 +137,7 @@ const [loading, setLoading] = useState(false);
     }
   };
 
-  const handlePrevStep = () => {
-    setSelectedTab('uploadLeads');
-  };
-
-  const handleNextStepFromScoreFilter = () => {
-    setSelectedTab('createLists'); // or whatever your next step is
-  };
-
-  const handlePrevStepFromCreateList = () => {
-    setSelectedTab('scoreFilter'); // go back to score filtering
-  };
-
-  const handleNextStepFromCreateList = () => {
-    setSelectedTab('market'); // go to final step or confirmation
-  };
-
-  const handlePrevStepFromMarket = () => {
-    setSelectedTab('createLists'); // Go back to the previous step
-  };
+ 
 
 
   useEffect(() => {
@@ -185,7 +168,7 @@ const [loading, setLoading] = useState(false);
 
 
   const handleScoreUpdate = async () => {
-      setLoading(true); // Show loader
+    setLoading(true); // Show loader
 
     console.log("Raw leads:", leads);
     console.log("Min score (selected score):", minScore, "Type:", typeof minScore);
@@ -193,7 +176,7 @@ const [loading, setLoading] = useState(false);
     const selectedScore = Number(minScore); // Use minScore as the selected score
     if (isNaN(selectedScore)) {
       console.error("❌ Invalid selected score value:", minScore);
-          setLoading(false);
+      setLoading(false);
       return;
     }
 
@@ -213,7 +196,7 @@ const [loading, setLoading] = useState(false);
 
     if (leadsToUpdate.length === 0) {
       console.log("No leads meet the score criteria.");
-          setLoading(false);
+      setLoading(false);
 
       return;
     }
@@ -221,7 +204,7 @@ const [loading, setLoading] = useState(false);
     const userId = localStorage.getItem("userId");
     if (!userId) {
       console.error("User ID not found.");
-          setLoading(false);
+      setLoading(false);
       return;
     }
 
@@ -235,32 +218,32 @@ const [loading, setLoading] = useState(false);
         body: JSON.stringify(leadsToUpdate),
       });
 
-       const result = await response.json();
-    if (response.ok) {
-      console.log("✅ Scores updated successfully:", result);
-      Swal.fire({
-        icon: 'success',
-        title: 'Scores Updated',
-        text: 'All selected leads have been updated successfully!',
-      });
-    } else {
-      console.error("❌ Failed to update scores:", result.error);
+      const result = await response.json();
+      if (response.ok) {
+        console.log("✅ Scores updated successfully:", result);
+        Swal.fire({
+          icon: 'success',
+          title: 'Scores Updated',
+          text: 'All selected leads have been updated successfully!',
+        });
+      } else {
+        console.error("❌ Failed to update scores:", result.error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Update Failed',
+          text: result.error || 'Something went wrong while updating scores.',
+        });
+      }
+    } catch (err) {
+      console.error("🚨 Error while updating scores:", err);
       Swal.fire({
         icon: 'error',
-        title: 'Update Failed',
-        text: result.error || 'Something went wrong while updating scores.',
+        title: 'Network Error',
+        text: 'Could not connect to the server.',
       });
+    } finally {
+      setLoading(false); // Hide loader
     }
-  } catch (err) {
-    console.error("🚨 Error while updating scores:", err);
-    Swal.fire({
-      icon: 'error',
-      title: 'Network Error',
-      text: 'Could not connect to the server.',
-    });
-  } finally {
-    setLoading(false); // Hide loader
-  }
   };
 
 
@@ -281,12 +264,12 @@ const [loading, setLoading] = useState(false);
   }, []);
 
   const handleCreateList = async () => {
-      setLoading(true);
+    setLoading(true);
 
     const userId = localStorage.getItem("userId");
     if (!userId) {
       console.error("User ID not found");
-          setLoading(false);
+      setLoading(false);
 
       return;
     }
@@ -313,15 +296,15 @@ const [loading, setLoading] = useState(false);
       const result = await response.json();
       if (response.ok) {
         console.log("✅ Leads saved successfully:", result);
-            window.location.reload();
+        window.location.reload();
       } else {
         console.error("❌ Failed to save leads:", result);
       }
     } catch (err) {
       console.error("🚨 Error saving leads:", err);
-    }finally {
-    setLoading(false);
-  }
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -331,11 +314,11 @@ const [loading, setLoading] = useState(false);
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-x-hidden">
         <Topbar />
-     {loading && (
-  <div className="fixed top-0 left-0 w-full h-full  flex items-center justify-center z-50">
-    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-  </div>
-)}
+        {loading && (
+          <div className="fixed top-0 left-0 w-full h-full  flex items-center justify-center z-50">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
 
 
         <main className="flex-1 p-6 bg-gray-100 min-h-screen overflow-y-auto relative">
@@ -349,7 +332,7 @@ const [loading, setLoading] = useState(false);
                 download="prop99.csv"
                 className="px-2 py-2 text-xs bg-yellow-400  rounded hover:bg-yellow-500"
               >
-                 Sample Download
+                Sample Download
               </a>
             </div>
             <p className="text-xs text-gray-600 mb-4">Import, score, and create lead lists for marketing</p>
@@ -377,10 +360,17 @@ const [loading, setLoading] = useState(false);
                   <FileImage className="mx-auto text-yellow-500 w-14 h-14 mb-4" />
                   <h6 className="text-black text-xs font-bold">Import Leads</h6>
                   <p className="text-xs text-gray-700 mb-6">
-                    Upload a CSV file with lead information. We&apos;ll help you map the <br /> fields and score leads based on property details.
+                    Upload a CSV file with lead information. We&apos;ll help you map the <br />
+                    fields and score leads based on property details.
                   </p>
+
                   <div>
-                    <button onClick={handleImportClick} className="text-xs bg-yellow-500 px-4 py-2 rounded">Import Lead</button>
+                    <button
+                      onClick={handleImportClick}
+                      className="text-xs bg-yellow-500 px-4 py-2 rounded"
+                    >
+                      Import Lead
+                    </button>
 
                     {/* Hidden file input */}
                     <input
@@ -390,11 +380,32 @@ const [loading, setLoading] = useState(false);
                       style={{ display: 'none' }}
                       onChange={handleFileChange}
                     />
-                    {file && <p className="mt-2 text-gray-700 text-sm">File ready to upload: {file.name}</p>}
-                    {message && <p className="mt-4 text-green-600 text-sm font-medium">{message}</p>}
+
+                    {file && (
+                      <p className="mt-2 text-gray-700 text-sm">
+                        File ready to upload: <span className="font-medium">{file.name}</span>
+                      </p>
+                    )}
+                    {message && (
+                      <p className="mt-4 text-green-600 text-sm font-medium">
+                        {message}
+                      </p>
+                    )}
                   </div>
+
+                  {file && (
+                    <div className="mt-6 flex justify-end">
+                      <button
+                         onClick={() => setSelectedTab("scoreFilter")}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
+
 
               {selectedTab === 'scoreFilter' && (
                 <div className="flex flex-col md:flex-row gap-6">
@@ -446,6 +457,22 @@ const [loading, setLoading] = useState(false);
                         Continue to Selection
                       </button>
                     </div>
+                  </div>
+
+                  {/* Navigation Buttons */}
+                  <div className="mt-6 flex justify-between">
+                    <button
+                       onClick={() => setSelectedTab("uploadLeads")}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 transition"
+                    >
+                      Previous
+                    </button>
+                    <button
+                       onClick={() => setSelectedTab("createLists")}
+                      className="px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition"
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
               )}
@@ -516,7 +543,7 @@ const [loading, setLoading] = useState(false);
                               <input
                                 type="checkbox"
                                 checked={selectedLeads.includes(lead.id)}
-                                // onChange={() => toggleLead(lead.id)}
+                              // onChange={() => toggleLead(lead.id)}
                               />
                             </td>
                             <td className="px-4 py-2">{lead.first_name?.trim() || ""}</td>
@@ -552,51 +579,67 @@ const [loading, setLoading] = useState(false);
                 </div>
               )}
               {selectedTab === 'market' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
-                    <h4 className="text-md font-semibold mb-1 text-black">Select a Lead List</h4>
-                    <p className="text-sm text-gray-600 mb-2">Choose a list for your marketing campaign</p>
-                    <select className="w-full rounded px-3 py-2 text-sm mb-3 text-black">
-                      <option>Propwire Export - 28 Properties - Jun 11, 2024 (27 leads)</option>
-                      <option>Primary Leads (2 leads)</option>
-                      <option>Cold Leads (1 lead)</option>
-                    </select>
-                    <div className="bg-white border rounded p-3 text-sm">
-                      <p className="font-medium text-gray-800 mb-1">Propwire Export - Jun 11, 2024</p>
-                      <p className="text-gray-500">No description</p>
-                      <div className="flex justify-between mt-2">
-                        <span className="text-black">Total Leads:</span>
-                        <span className="font-semibold text-black">27</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-black">High Value Leads:</span>
-                        <span className="font-semibold text-black">0</span>
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left Column: Lead List */}
+                    <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
+                      <h4 className="text-md font-semibold mb-1 text-black">Select a Lead List</h4>
+                      <p className="text-sm text-gray-600 mb-2">Choose a list for your marketing campaign</p>
+                      <select className="w-full rounded px-3 py-2 text-sm mb-3 text-black">
+                        <option>Propwire Export - 28 Properties - Jun 11, 2024 (27 leads)</option>
+                        <option>Primary Leads (2 leads)</option>
+                        <option>Cold Leads (1 lead)</option>
+                      </select>
+                      <div className="bg-white border rounded p-3 text-sm">
+                        <p className="font-medium text-gray-800 mb-1">Propwire Export - Jun 11, 2024</p>
+                        <p className="text-gray-500">No description</p>
+                        <div className="flex justify-between mt-2">
+                          <span className="text-black">Total Leads:</span>
+                          <span className="font-semibold text-black">27</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-black">High Value Leads:</span>
+                          <span className="font-semibold text-black">0</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Right Column: Marketing Channel */}
+                    <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
+                      <h4 className="text-md font-semibold mb-1 text-black">Choose Marketing Channel</h4>
+                      <p className="text-sm text-gray-600 mb-2">Select where to market this list</p>
+                      <select className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4">
+                        <option>Select marketing channel</option>
+                        <option>Campaign Manager</option>
+                        <option>Sequences</option>
+                        <option>Call Dashboard</option>
+                        <option>Email Management</option>
+                      </select>
+                      <button
+                        onClick={() => console.log('Continue to Marketing clicked')}
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-4 rounded transition"
+                      >
+                        Continue to Marketing
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
-                    <h4 className="text-md font-semibold mb-1 text-black">Choose Marketing Channel</h4>
-                    <p className="text-sm text-gray-600 mb-2">Select where to market this list</p>
-                    <select className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4">
-                      <option>Select marketing channel</option>
-                      <option>Campaign Manager</option>
-                      <option>Sequences</option>
-                      <option>Call Dashboard</option>
-                      <option>Email Management</option>
-                    </select>
+
+                  {/* Navigation Button */}
+                  <div className="mt-6">
                     <button
-                      onClick={() => console.log('Continue to Marketing clicked')}
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-4 rounded transition"
+                       onClick={() => setSelectedTab("createLists")}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 transition"
                     >
-                      Continue to Marketing
+                      Previous
                     </button>
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

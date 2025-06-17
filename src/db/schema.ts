@@ -147,7 +147,7 @@ export const leads = mysqlTable("leads", {
   estimated_max_value: decimal("estimated_max_value", { precision: 15, scale: 2 }),
   leadtype: int("leadtype"),
   markettype: varchar("markettype", { length: 50 }),
-  score: int("score"),
+ 
 });
 
 export const leadtype = mysqlTable("leadtype", {
