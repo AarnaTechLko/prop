@@ -21,7 +21,23 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, message: "Lead type created", data: result });
-  } catch (error: unknown) {
+ } catch (error: unknown) {
+  console.error("Error inserting leadtype:", error);
+  const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
+  return NextResponse.json({ error: errorMessage }, { status: 500 });
+}
+
+}
+
+// GET /api/leadtype — Fetch all lead types
+export async function GET() {
+  try {
+    const result = await db.select().from(leadtype).orderBy(leadtype.createdAt);
+    return NextResponse.json(result);
+  
+  } 
+
+catch (error: unknown) {
   if (error instanceof Error) {
     console.error("Error inserting leadtype:", error.message);
   } else {
@@ -30,5 +46,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
 }
+};
 
-}

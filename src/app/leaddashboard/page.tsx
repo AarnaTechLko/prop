@@ -50,10 +50,6 @@ const [loading, setLoading] = useState(false);
     const allSelected = selectedLeads.length === leads.length;
     setSelectedLeads(allSelected ? [] : leads.map((lead) => lead.id));
   };
-
-
-
-
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -140,7 +136,25 @@ const [loading, setLoading] = useState(false);
     }
   };
 
+  const handlePrevStep = () => {
+    setSelectedTab('uploadLeads');
+  };
 
+  const handleNextStepFromScoreFilter = () => {
+    setSelectedTab('createLists'); // or whatever your next step is
+  };
+
+  const handlePrevStepFromCreateList = () => {
+    setSelectedTab('scoreFilter'); // go back to score filtering
+  };
+
+  const handleNextStepFromCreateList = () => {
+    setSelectedTab('market'); // go to final step or confirmation
+  };
+
+  const handlePrevStepFromMarket = () => {
+    setSelectedTab('createLists'); // Go back to the previous step
+  };
 
 
   useEffect(() => {
@@ -502,13 +516,7 @@ const [loading, setLoading] = useState(false);
                               <input
                                 type="checkbox"
                                 checked={selectedLeads.includes(lead.id)}
-                                onChange={() =>
-                                  setSelectedLeads((prev) =>
-                                    prev.includes(lead.id)
-                                      ? prev.filter((id) => id !== lead.id)
-                                      : [...prev, lead.id]
-                                  )
-                                }
+                                // onChange={() => toggleLead(lead.id)}
                               />
                             </td>
                             <td className="px-4 py-2">{lead.first_name?.trim() || ""}</td>
