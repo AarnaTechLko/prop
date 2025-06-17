@@ -116,11 +116,11 @@ export async function POST(req: NextRequest) {
     
     if (uniqueRows.length === 0) {
   return NextResponse.json({
-    error: 'CSV already uploaded — all APNs already exist.',
+    // error: 'CSV already uploaded — all APNs already exist.',
   }, { status: 409 });
 }
     // Step 4: Format for insertion
-    
+
     const formattedRows = uniqueRows.map((row) => ({
       user_id: Number(userId),
       first_name: row['First Name'] || null,
