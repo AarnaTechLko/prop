@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { db } from '@/db/db';
-import { leads } from '@/db/schema';
+import { tempLeads } from '@/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
 
@@ -94,7 +95,33 @@ export async function POST(req: NextRequest) {
 
     const rows = parsed.data;
 
-    const formattedRows = rows.map((row) => ({
+    // Step 1: Extract all APNs from the uploaded CSV
+    const apnList = rows.map((row) => row['APN']).filter(Boolean) as string[];
+
+    // Step 2: Get existing APNs from database for this user
+    const existingApns = await db
+      .select({ apn: tempLeads.apn })
+      .from(tempLeads)
+      .where(and(inArray(tempLeads.apn, apnList), eq(tempLeads.user_id, Number(userId))));
+
+    const existingApnSet = new Set(existingApns.map((lead) => lead.apn));
+
+    // Step 3: Filter out rows that already exist by APN
+    const uniqueRows = rows.filter((row) => {
+      const apn = row['APN'];
+      return apn && !existingApnSet.has(apn);
+    });
+ 
+
+    
+    if (uniqueRows.length === 0) {
+  return NextResponse.json({
+    error: 'CSV already uploaded — all APNs already exist.',
+  }, { status: 409 });
+}
+    // Step 4: Format for insertion
+    
+    const formattedRows = uniqueRows.map((row) => ({
       user_id: Number(userId),
       first_name: row['First Name'] || null,
       last_name: row['Last Name'] || null,
@@ -161,15 +188,24 @@ export async function POST(req: NextRequest) {
       estimated_max_value: row['Estimated Max Value'] ? parseFloat(row['Estimated Max Value']) : null,
     }));
 
+    // Step 5: Insert only unique APN rows in chunks
     const chunkSize = 500;
     for (let i = 0; i < formattedRows.length; i += chunkSize) {
       const chunk = formattedRows.slice(i, i + chunkSize);
-      await db.insert(leads).values(chunk as typeof leads.$inferInsert[]);
+      await db.insert(tempLeads).values(chunk as typeof tempLeads.$inferInsert[]);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      totalUploaded: rows.length,
+      inserted: formattedRows.length,
+      duplicatesFiltered: rows.length - formattedRows.length,
+    });
   } catch (err) {
     console.error('Upload error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+
+

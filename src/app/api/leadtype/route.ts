@@ -21,8 +21,14 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, message: "Lead type created", data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
+  if (error instanceof Error) {
+    console.error("Error inserting leadtype:", error.message);
+  } else {
     console.error("Error inserting leadtype:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
+
+  return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+}
+
 }

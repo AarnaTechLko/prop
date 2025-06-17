@@ -1,11 +1,26 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FileImage } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { useRouter } from 'next/navigation';
 import Sidebar from '../dashboard/components/Sidebar';
 import Topbar from '../dashboard/components/Topbar';
+import Papa from 'papaparse';
+interface Lead {
+  id: string;
+  first_name?: string;
+  phone1?: string;
+  score: number;
+  [key: string]: unknown;
+
+}
+
+
+interface CsvRow {
+  "First Name"?: string;
+  "Phone 1"?: string;
+  "Score"?: string | number;
+}
 export default function DashboardPage() {
   const [selectedTab, setSelectedTab] = useState<'uploadLeads' | 'scoreFilter' | 'createLists' | 'market'>('uploadLeads');
   const [minScore, setMinScore] = useState(50);
@@ -13,16 +28,8 @@ export default function DashboardPage() {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-   const router = useRouter();
-
- 
-  const filterRef = useRef<HTMLDivElement>(null); // 👈 add this for scrolling
-
- 
-
-const handleNextClick = () => {
-  setSelectedTab('scoreFilter');
-};
+  const [leads, setLeads] = useState<Lead[]>([]);
+const [loading, setLoading] = useState(false);
 
   type TabKey = 'uploadLeads' | 'scoreFilter' | 'createLists' | 'market';
 
@@ -33,21 +40,19 @@ const handleNextClick = () => {
     market: 'Market',
   } as const;
 
-  const leads = Array.from({ length: 5 }, (_, i) => ({
-    id: String(i + 1),
-    added: '4/11/2025',
-    score: 55,
-  }));
+  // const leads = Array.from({ length: 5 }, (_, i) => ({
+  //   id: String(i + 1),
+  //   added: '4/11/2025',
+  //   score: 55,
+  // }));
 
   const toggleSelectAll = () => {
-    setSelectedLeads(selectedLeads.length === leads.length ? [] : leads.map((l) => l.id));
+    const allSelected = selectedLeads.length === leads.length;
+    setSelectedLeads(allSelected ? [] : leads.map((lead) => lead.id));
   };
 
-  const toggleLead = (id: string) => {
-    setSelectedLeads((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
+
+
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -55,6 +60,22 @@ const handleNextClick = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function (results) {
+        const parsed = (results.data as CsvRow[]).map((row, index) => ({
+          id: String(Date.now() + index),
+          first_name: row["First Name"]?.trim() || "",
+          phone1: row["Phone 1"]?.trim() || "",
+          score: Number(row["Score"] || 0),
+        }));
+        setLeads(parsed);
+        setSelectedLeads([]);
+        // setSelectedTab("scoreFilter");
+      },
+    });
+
     setFile(file);
     setMessage('');
     const formData = new FormData();
@@ -121,17 +142,202 @@ const handleNextClick = () => {
 
 
 
+
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      try {
+        const response = await fetch("/api/createlist", {
+          method: "GET",
+          headers: { "x-user-id": userId },
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          setLeads(data.data);
+        } else {
+          console.error("Failed to fetch leads:", data.message);
+        }
+      } catch (err) {
+        console.error("Error fetching leads:", err);
+      }
+    };
+
+    fetchLeads();
+  }, []);
+
+
+
+  const handleScoreUpdate = async () => {
+      setLoading(true); // Show loader
+
+    console.log("Raw leads:", leads);
+    console.log("Min score (selected score):", minScore, "Type:", typeof minScore);
+
+    const selectedScore = Number(minScore); // Use minScore as the selected score
+    if (isNaN(selectedScore)) {
+      console.error("❌ Invalid selected score value:", minScore);
+          setLoading(false);
+      return;
+    }
+
+    // Filter leads you want to update (optional condition — here we accept all with a valid ID)
+    const leadsToUpdate = leads
+      .filter((lead) => {
+        const isValid = lead?.id != null;
+        // console.log(`Checking lead id: ${lead.id}, valid: ${isValid}`);
+        return isValid;
+      })
+      .map((lead) => ({
+        id: lead.id,
+        score: selectedScore, // ✅ Set score to the selected score
+      }));
+
+    console.log("✅ Leads to update:", leadsToUpdate);
+
+    if (leadsToUpdate.length === 0) {
+      console.log("No leads meet the score criteria.");
+          setLoading(false);
+
+      return;
+    }
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      console.error("User ID not found.");
+          setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/update-scores", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify(leadsToUpdate),
+      });
+
+       const result = await response.json();
+    if (response.ok) {
+      console.log("✅ Scores updated successfully:", result);
+      Swal.fire({
+        icon: 'success',
+        title: 'Scores Updated',
+        text: 'All selected leads have been updated successfully!',
+      });
+    } else {
+      console.error("❌ Failed to update scores:", result.error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: result.error || 'Something went wrong while updating scores.',
+      });
+    }
+  } catch (err) {
+    console.error("🚨 Error while updating scores:", err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Network Error',
+      text: 'Could not connect to the server.',
+    });
+  } finally {
+    setLoading(false); // Hide loader
+  }
+  };
+
+
+
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const res = await fetch('/api/update-scores', {
+        method: 'GET',
+        headers: {
+          'x-user-id': localStorage.getItem('userId') || ''
+        }
+      });
+      const json = await res.json();
+      setLeads(json.data);
+    };
+
+    fetchLeads();
+  }, []);
+
+  const handleCreateList = async () => {
+      setLoading(true);
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      console.error("User ID not found");
+          setLoading(false);
+
+      return;
+    }
+
+    const payload = leads
+      .filter((lead) => selectedLeads.includes(lead.id))
+      .map((lead) => ({
+        user_id: Number(userId),
+        first_name: lead.first_name || null,
+        phone1: lead.phone1 || null,
+        score: lead.score || 0,
+      }));
+
+    try {
+      const response = await fetch("/api/save-leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify({ leads: payload }), // ✅ FIXED
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        console.log("✅ Leads saved successfully:", result);
+            window.location.reload();
+      } else {
+        console.error("❌ Failed to save leads:", result);
+      }
+    } catch (err) {
+      console.error("🚨 Error saving leads:", err);
+    }finally {
+    setLoading(false);
+  }
+  };
+
+
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-x-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-x-hidden">
         <Topbar />
+     {loading && (
+  <div className="fixed top-0 left-0 w-full h-full  flex items-center justify-center z-50">
+    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+)}
+
+
         <main className="flex-1 p-6 bg-gray-100 min-h-screen overflow-y-auto relative">
-          <h1 className="text-2xl font-semibold mb-4 text-black">Dashboard</h1>
-          <p className="text-xs text-gray-600 mb-4">Manage your leads workflow, from import to marketing</p>
+
 
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-bold mb-4 text-black">Lead Dashboard</h2>
+            <div className="flex justify-end mb-4">
+              <a
+                href="/files/prop99.csv"
+                download="prop99.csv"
+                className="px-2 py-2 text-xs bg-yellow-400  rounded hover:bg-yellow-500"
+              >
+                 Sample Download
+              </a>
+            </div>
             <p className="text-xs text-gray-600 mb-4">Import, score, and create lead lists for marketing</p>
 
             {/* Tabs */}
@@ -155,12 +361,12 @@ const handleNextClick = () => {
               {selectedTab === 'uploadLeads' && (
                 <div className="text-center bg-gray-50 rounded-md shadow-inner p-6">
                   <FileImage className="mx-auto text-yellow-500 w-14 h-14 mb-4" />
-                  <h6 className="text-black font-bold">Import Leads</h6>
+                  <h6 className="text-black text-xs font-bold">Import Leads</h6>
                   <p className="text-xs text-gray-700 mb-6">
                     Upload a CSV file with lead information. We&apos;ll help you map the <br /> fields and score leads based on property details.
                   </p>
                   <div>
-                    <button onClick={handleImportClick} className="text-black bg-yellow-500 px-4 py-2 rounded">Import Lead</button>
+                    <button onClick={handleImportClick} className="text-xs bg-yellow-500 px-4 py-2 rounded">Import Lead</button>
 
                     {/* Hidden file input */}
                     <input
@@ -173,15 +379,6 @@ const handleNextClick = () => {
                     {file && <p className="mt-2 text-gray-700 text-sm">File ready to upload: {file.name}</p>}
                     {message && <p className="mt-4 text-green-600 text-sm font-medium">{message}</p>}
                   </div>
-                  <div className="flex justify-end mt-4">
-
-                  <button
-                    onClick={handleNextClick}
-                    className="mt-4 text-white bg-gray-400 px-4 py-2 rounded text-xs"
-                  >
-                    Next
-                  </button>
-                </div>
                 </div>
               )}
 
@@ -218,20 +415,34 @@ const handleNextClick = () => {
                       onChange={(e) => setMinScore(Number(e.target.value))}
                       className="w-full accent-yellow-500"
                     />
-                    <p className="text-right text-xs text-gray-500 mt-2">58 leads match</p>
+                    <p className="text-right text-xs text-gray-500 mt-2">
+                      {leads.filter((lead) => typeof lead.score === "number" && lead.score >= minScore).length} leads match
+                    </p>
+
+
                     <div className="mt-4 flex space-x-3">
                       <button className="px-4 py-2 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-100 transition">Show Preview</button>
-                      <button className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs transition">Continue to Selection</button>
+                      <button
+                        onClick={() => {
+                          handleScoreUpdate();
+                          // setSelectedTab("createLists");
+                        }}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs transition"
+                      >
+                        Continue to Selection
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {selectedTab === 'createLists' && (
+              {selectedTab === "createLists" && (
                 <div>
                   <div className="bg-orange-50 rounded border mb-4 shadow-lg px-2 py-2">
                     <h6 className="text-black font-bold py-2">Select leads to create a new list</h6>
-                    <p className="text-xs text-gray-700 mb-2 ms-2">Currently showing {leads.length} leads with score 21+</p>
+                    <p className="text-xs text-gray-700 mb-2 ms-2">
+                      Currently showing {leads.length} leads
+                    </p>
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                         <input
@@ -248,18 +459,31 @@ const handleNextClick = () => {
                         >
                           Clear Selection
                         </button>
-                        <button
+                        {/* <button
                           disabled={selectedLeads.length === 0}
                           className={`text-sm px-4 py-2 rounded text-white transition ${selectedLeads.length === 0
-                            ? 'bg-yellow-300 cursor-not-allowed'
-                            : 'bg-yellow-500 hover:bg-yellow-600'
+                            ? "bg-yellow-300 cursor-not-allowed"
+                            : "bg-yellow-500 hover:bg-yellow-600"
+                            }`}
+                        >
+                          Create List ({selectedLeads.length})
+                        </button> */}
+                        <button
+                          onClick={handleCreateList}
+                          disabled={selectedLeads.length === 0}
+                          className={`text-sm px-4 py-2 rounded text-white transition ${selectedLeads.length === 0
+                            ? "bg-yellow-300 cursor-not-allowed"
+                            : "bg-yellow-500 hover:bg-yellow-600"
                             }`}
                         >
                           Create List ({selectedLeads.length})
                         </button>
+
                       </div>
                     </div>
                   </div>
+
+                  {/* Lead Table */}
                   <div className="overflow-x-auto rounded">
                     <table className="min-w-full text-sm text-left text-gray-700">
                       <thead className="bg-gray-100 text-xs text-gray-600">
@@ -278,28 +502,47 @@ const handleNextClick = () => {
                               <input
                                 type="checkbox"
                                 checked={selectedLeads.includes(lead.id)}
-                                onChange={() => toggleLead(lead.id)}
+                                onChange={() =>
+                                  setSelectedLeads((prev) =>
+                                    prev.includes(lead.id)
+                                      ? prev.filter((id) => id !== lead.id)
+                                      : [...prev, lead.id]
+                                  )
+                                }
                               />
                             </td>
+                            <td className="px-4 py-2">{lead.first_name?.trim() || ""}</td>
+                            <td className="px-4 py-2">{lead.phone1?.trim() || ""}</td>
                             <td className="px-4 py-2">
-                              ***<br />
-                              <span className="text-xs text-gray-500">Added {lead.added}</span>
-                            </td>
-                            <td className="px-4 py-2 text-gray-500">No email<br />No phone</td>
-                            <td className="px-4 py-2">
-                              <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">New</span>
+                              <span className="bg-blue-100 text-blue-700 px-2 py-1 text-xs rounded">pending</span>
                             </td>
                             <td className="px-4 py-2">
-                              <span className="inline-block bg-yellow-100 text-yellow-500 text-xs px-2 py-1 rounded">Score: {lead.score}</span>
+                              <span className="bg-yellow-100 text-yellow-600 px-2 py-1 text-xs rounded">
+                                {lead.score}
+                              </span>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+
+                  <div className="mt-6 flex justify-between text-xs">
+                    <button
+                      onClick={() => setSelectedTab("scoreFilter")}
+                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-gray-500 bg-gray-400"
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      onClick={() => setSelectedTab("market")}
+                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
+                    >
+                      Next →
+                    </button>
+                  </div>
                 </div>
               )}
-
               {selectedTab === 'market' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
