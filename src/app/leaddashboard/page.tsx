@@ -6,6 +6,8 @@ import Swal from 'sweetalert2';
 import Sidebar from '../dashboard/components/Sidebar';
 import Topbar from '../dashboard/components/Topbar';
 import Papa from 'papaparse';
+import DataTable from 'react-data-table-component';
+
 interface Lead {
   id: string;
   first_name?: string;
@@ -30,7 +32,6 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
-  
 
   type TabKey = 'uploadLeads' | 'scoreFilter' | 'createLists' | 'market';
 
@@ -104,19 +105,34 @@ export default function DashboardPage() {
       try {
         const json = JSON.parse(text);
 
-        if (!response.ok) {
+        if (response.status === 409) {
+          Swal.fire({
+            icon: 'warning',
+            title: ' Upload',
+            text: json.error || 'This CSV was already uploaded.',
+          }).then(() => {
+            // 🔄 Refresh the page
+            location.reload();
+          });
+        } else if (!response.ok) {
           console.error('Upload failed:', json.error || response.statusText);
           Swal.fire({
             icon: 'error',
             title: 'Upload Failed',
             text: json.error || response.statusText,
+          }).then(() => {
+            // 🔄 Refresh the page
+            location.reload();
           });
         } else {
           console.log('Upload success:', json);
           Swal.fire({
             icon: 'success',
             title: 'Upload Successful',
-            text: 'Your file has been uploaded successfully!',
+            text: `File uploaded successfully! ${json.inserted} new rows added.`,
+          }).then(() => {
+            // 🔄 Refresh the page
+            location.reload();
           });
         }
       } catch {
@@ -125,6 +141,9 @@ export default function DashboardPage() {
           icon: 'error',
           title: 'Upload Error',
           text: 'Server responded with invalid data.',
+        }).then(() => {
+          // 🔄 Refresh the page
+          location.reload();
         });
       }
     } catch (error) {
@@ -135,9 +154,9 @@ export default function DashboardPage() {
         text: 'Something went wrong while uploading the file.',
       });
     }
+
   };
 
- 
 
 
   useEffect(() => {
@@ -225,14 +244,14 @@ export default function DashboardPage() {
           icon: 'success',
           title: 'Scores Updated',
           text: 'All selected leads have been updated successfully!',
-        });
+        })
       } else {
         console.error("❌ Failed to update scores:", result.error);
         Swal.fire({
           icon: 'error',
           title: 'Update Failed',
           text: result.error || 'Something went wrong while updating scores.',
-        });
+        })
       }
     } catch (err) {
       console.error("🚨 Error while updating scores:", err);
@@ -240,7 +259,7 @@ export default function DashboardPage() {
         icon: 'error',
         title: 'Network Error',
         text: 'Could not connect to the server.',
-      });
+      })
     } finally {
       setLoading(false); // Hide loader
     }
@@ -296,7 +315,6 @@ export default function DashboardPage() {
       const result = await response.json();
       if (response.ok) {
         console.log("✅ Leads saved successfully:", result);
-        window.location.reload();
       } else {
         console.error("❌ Failed to save leads:", result);
       }
@@ -307,6 +325,53 @@ export default function DashboardPage() {
     }
   };
 
+
+  // const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+
+  const toggleLead = (id: string) => {
+    setSelectedLeads((prev) =>
+      prev.includes(id) ? prev.filter((leadId) => leadId !== id) : [...prev, id]
+    );
+  };
+
+  const columns = [
+    {
+      name: 'Select',
+      cell: (row: Lead) => (
+        <input
+          type="checkbox"
+          checked={selectedLeads.includes(row.id)}
+          onChange={() => toggleLead(row.id)}
+        />
+      ),
+      width: '80px',
+    },
+    {
+      name: 'Lead',
+      selector: (row: Lead) => row.first_name?.trim() || '',
+      sortable: true,
+    },
+    {
+      name: 'Contact',
+      selector: (row: Lead) => row.phone1?.trim() || '',
+    },
+    {
+      name: 'Status',
+      cell: () => (
+        <span className="bg-blue-100 text-blue-300 px-2 py-1 text-xs rounded">
+          pending
+        </span>
+      ),
+    },
+    {
+      name: 'Score',
+      cell: (row: Lead) => (
+        <span className="bg-yellow-100 text-yellow-600 px-2 py-1 text-xs rounded">
+          {row.score}
+        </span>
+      ),
+    },
+  ];
 
 
   return (
@@ -340,12 +405,13 @@ export default function DashboardPage() {
             {/* Tabs */}
             <div className="flex flex-wrap gap-2 mb-6 ms-20 bg-orange-50 rounded-lg">
               {(Object.keys(labelMap) as TabKey[]).map((tabKey) => (
+
                 <button
                   key={tabKey}
                   onClick={() => setSelectedTab(tabKey)}
                   className={`px-6 py-2 rounded text-xs transition duration-300 ${selectedTab === tabKey
-                    ? 'bg-white text-black font-semibold shadow-md'
-                    : 'bg-orange-50 text-gray-700 hover:bg-white hover:text-black hover:shadow'
+                    ? 'bg-yellow-500 text-black font-semibold shadow-md'
+                    : 'bg-white text-gray-700 hover:bg-white hover:text-black hover:shadow'
                     }`}
                 >
                   {labelMap[tabKey]}
@@ -392,89 +458,88 @@ export default function DashboardPage() {
                       </p>
                     )}
                   </div>
+                  <div className="mt-6 text-right">
+                    <button
+                      onClick={() => setSelectedTab("scoreFilter")}
+                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
+                    >
+                      Next →
+                    </button>
+                  </div>
 
-                  {file && (
-                    <div className="mt-6 flex justify-end">
-                      <button
-                         onClick={() => setSelectedTab("scoreFilter")}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 
 
               {selectedTab === 'scoreFilter' && (
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="w-full md:w-2/5 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <h6 className="text-yellow-500 font-semibold text-xs mb-2">Lead Scoring</h6>
-                    <p className="text-xs text-gray-600 mb-6">
-                      Leads are scored from 0–100 based on various criteria.
-                    </p>
-                    <div className="flex justify-between">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-black">1</div>
-                        <p className="text-xs text-gray-500">Hot Leads (80+)</p>
+                <>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="w-full md:w-2/5 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <h6 className="text-yellow-600 font-semibold text-xs mb-2">Lead Scoring</h6>
+                      <p className="text-xs text-gray-600 mb-6">
+                        Leads are scored from 0–100 based on various criteria.
+                      </p>
+                      <div className="flex justify-between">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-black">1</div>
+                          <p className="text-xs text-gray-500">Hot Leads (80+)</p>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-black">57</div>
+                          <p className="text-xs text-gray-500">Warm Leads (50–79)</p>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-black">1</div>
+                          <p className="text-xs text-gray-500">Cold Leads (&lt;50)</p>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-black">57</div>
-                        <p className="text-xs text-gray-500">Warm Leads (50–79)</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-black">1</div>
-                        <p className="text-xs text-gray-500">Cold Leads (&lt;50)</p>
+                    </div>
+                    <div className="w-full md:w-3/5 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <h6 className="text-yellow-600 font-semibold text-xs mb-2">Score Threshold Filter</h6>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Min. Score: {minScore}</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={minScore}
+                        onChange={(e) => setMinScore(Number(e.target.value))}
+                        className="w-full accent-yellow-500"
+                      />
+                      <p className="text-right text-xs text-gray-500 mt-2">
+                        {leads.filter((lead) => typeof lead.score === "number" && lead.score >= minScore).length} leads match
+                      </p>
+
+
+                      <div className="mt-4 flex space-x-3">
+                        <button className="px-4 py-2 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-100 transition">Show Preview</button>
+                        <button
+                          onClick={() => {
+                            handleScoreUpdate();
+                            // setSelectedTab("createLists");
+                          }}
+                          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs transition"
+                        >
+                          Continue to Selection
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="w-full md:w-3/5 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <h6 className="text-yellow-600 font-semibold text-xs mb-2">Score Threshold Filter</h6>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Min. Score: {minScore}</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={minScore}
-                      onChange={(e) => setMinScore(Number(e.target.value))}
-                      className="w-full accent-yellow-500"
-                    />
-                    <p className="text-right text-xs text-gray-500 mt-2">
-                      {leads.filter((lead) => typeof lead.score === "number" && lead.score >= minScore).length} leads match
-                    </p>
-
-
-                    <div className="mt-4 flex space-x-3">
-                      <button className="px-4 py-2 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-100 transition">Show Preview</button>
-                      <button
-                        onClick={() => {
-                          handleScoreUpdate();
-                          // setSelectedTab("createLists");
-                        }}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs transition"
-                      >
-                        Continue to Selection
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Navigation Buttons */}
-                  <div className="mt-6 flex justify-between">
+                  <div className="mt-6 flex justify-between text-xs">
                     <button
-                       onClick={() => setSelectedTab("uploadLeads")}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 transition"
+                      onClick={() => setSelectedTab("uploadLeads")}
+                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-gray-500 bg-gray-400"
                     >
-                      Previous
+                      ← Previous
                     </button>
                     <button
-                       onClick={() => setSelectedTab("createLists")}
-                      className="px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition"
+                      onClick={() => setSelectedTab("createLists")}
+                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
                     >
-                      Next
+                      Next →
                     </button>
                   </div>
-                </div>
+
+                </>
               )}
 
               {selectedTab === "createLists" && (
@@ -513,8 +578,8 @@ export default function DashboardPage() {
                           onClick={handleCreateList}
                           disabled={selectedLeads.length === 0}
                           className={`text-sm px-4 py-2 rounded text-white transition ${selectedLeads.length === 0
-                            ? "bg-yellow-300 cursor-not-allowed"
-                            : "bg-yellow-500 hover:bg-yellow-600"
+                            ? "bg-yellow-500 cursor-not-allowed"
+                            : "bg-yellow-500 hover:bg-yellow-400"
                             }`}
                         >
                           Create List ({selectedLeads.length})
@@ -526,7 +591,7 @@ export default function DashboardPage() {
 
                   {/* Lead Table */}
                   <div className="overflow-x-auto rounded">
-                    <table className="min-w-full text-sm text-left text-gray-700">
+                    {/* <table className="min-w-full text-sm text-left text-gray-700">
                       <thead className="bg-gray-100 text-xs text-gray-600">
                         <tr>
                           <th className="px-4 py-2">Select</th>
@@ -559,7 +624,19 @@ export default function DashboardPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table> */}
+                    <div className="bg-white rounded shadow-sm p-4">
+                      <DataTable
+                        columns={columns}
+                        data={leads}
+                        pagination
+                        highlightOnHover
+                        striped
+                        responsive
+                        persistTableHead
+                      />
+                    </div>
+
                   </div>
 
                   <div className="mt-6 flex justify-between text-xs">
