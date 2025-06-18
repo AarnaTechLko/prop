@@ -7,12 +7,13 @@ import {
   flexRender,
   ColumnDef,
 } from '@tanstack/react-table';
-import { useState, useRef, useEffect,useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Sidebar from '../dashboard/components/Sidebar';
 import Topbar from '../dashboard/components/Topbar';
 import { Users, Pencil, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
+
 
 interface LeadList {
   id: string;
@@ -60,6 +61,8 @@ export default function LeadListsPage() {
   const filteredLeadLists = leadLists.filter((list) =>
     list.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
     setUserId(storedUserId);
@@ -96,8 +99,6 @@ export default function LeadListsPage() {
 
     if (userId) fetchLeadCounts();
   }, [userId]);
-
-
 
 
   useEffect(() => {
@@ -274,7 +275,7 @@ export default function LeadListsPage() {
   }, [selectedListId, userId]);
 
 
-const columns = useMemo<ColumnDef<Lead>[]>(
+  const columns = useMemo<ColumnDef<Lead>[]>(
     () => [
       {
         header: 'First Name',
@@ -296,6 +297,7 @@ const columns = useMemo<ColumnDef<Lead>[]>(
         header: 'Type',
         accessorKey: 'phone1_type',
       },
+     
     ],
     []
   );
@@ -420,94 +422,63 @@ const columns = useMemo<ColumnDef<Lead>[]>(
                 <h2 className="text-xl font-bold">{selectedList.name}</h2>
                 <h2 className="text-xl font-bold">{selectedList.id}</h2>
                 <div className="mt-6 overflow-x-auto">
-                  {/* <table className="min-w-full border border-gray-200 text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="p-2 border">First Name</th>
-                        <th className="p-2 border">Last Name</th>
-                        <th className="p-2 border">City</th>
-                        <th className="p-2 border">Phone</th>
-                        <th className="p-2 border">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leads.filter((lead) => lead.leadtype === selectedList.id).length > 0 ? (
-                        leads
-                          .filter((lead) => lead.leadtype === selectedList.id)
-                          .map((lead) => (
-                            <tr key={lead.id} className="text-center">
-                              <td className="p-2 border">{lead.first_name}</td>
-                              <td className="p-2 border">{lead.last_name}</td>
-                              <td className="p-2 border">{lead.city}</td>
-                              <td className="p-2 border">{lead.phone1}</td>
-                              <td className="p-2 border">{lead.phone1_type}</td>
+
+
+                  <div className="mt-6 overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 text-sm">
+                      <thead className="bg-gray-100">
+                        {table.getHeaderGroups().map((headerGroup) => (
+                          <tr key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => (
+                              <th key={header.id} className="p-2 border text-left font-semibold">
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                              </th>
+                            ))}
+                          </tr>
+                        ))}
+                      </thead>
+                      <tbody>
+                        {table.getRowModel().rows.length > 0 ? (
+                          table.getRowModel().rows.map((row) => (
+                            <tr key={row.id} className="text-center">
+                              {row.getVisibleCells().map((cell) => (
+                                <td key={cell.id} className="p-2 border">
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </td>
+                              ))}
                             </tr>
                           ))
-                      ) : (
-                        <tr>
-                          <td className="p-4 border text-center text-gray-500" colSpan={5}>
-                            Lead data not found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table> */}
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="p-4 border text-center text-gray-500">
+                              Lead data not found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
 
-                   <div className="mt-6 overflow-x-auto">
-      <table className="min-w-full border border-gray-200 text-sm">
-        <thead className="bg-gray-100">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th key={header.id} className="p-2 border text-left font-semibold">
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.length > 0 ? (
-            table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="text-center">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-2 border">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={5} className="p-4 border text-center text-gray-500">
-                Lead data not found
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Pagination Controls */}
-      <div className="flex justify-between items-center mt-4">
-        <button
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span className="text-sm">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </span>
-        <button
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
-    </div>
+                    {/* Pagination Controls */}
+                    <div className="flex justify-between items-center mt-4">
+                      <button
+                        onClick={() => table.previousPage()}
+                        disabled={!table.getCanPreviousPage()}
+                        className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm">
+                        Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                      </span>
+                      <button
+                        onClick={() => table.nextPage()}
+                        disabled={!table.getCanNextPage()}
+                        className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -525,6 +496,8 @@ const columns = useMemo<ColumnDef<Lead>[]>(
         onChange={handleFileChange}
       />
 
+
+      
       {/* Modal for Creating New List */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
