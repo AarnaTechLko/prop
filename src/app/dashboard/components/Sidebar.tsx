@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import { Folder } from 'lucide-react';
+
 import {
   LayoutDashboard,
   Activity,
@@ -16,7 +18,8 @@ const menu = [
   { name: 'Lead Lists', icon: List, href: '/leadlist', color: 'text-blue-500', badge: 'New', badgeColor: 'bg-blue-500' },
   
   { name: 'Lead Dashboard', icon: Users, href: '/leaddashboard', color: 'text-blue-600' },
-  
+  { name: 'Properties', icon: Folder, href: '/properties', color: 'text-blue-800' },
+
 
   // SETTINGS
   { name: 'My Profile', icon: User, href: '/profile', color: 'text-yellow-500', },

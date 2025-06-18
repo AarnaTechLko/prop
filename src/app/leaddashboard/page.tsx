@@ -128,7 +128,7 @@ export default function DashboardPage() {
         }));
         setLeads(parsed);
         setSelectedLeads([]);
-        // setSelectedTab("scoreFilter");
+        setSelectedTab("scoreFilter");
       },
     });
 
@@ -558,10 +558,17 @@ export default function DashboardPage() {
                   <FileImage className="mx-auto text-yellow-500 w-14 h-14 mb-4" />
                   <h6 className="text-black text-xs font-bold">Import Leads</h6>
                   <p className="text-xs text-gray-700 mb-6">
-                    Upload a CSV file with lead information. We&apos;ll help you map the <br /> fields and score leads based on property details.
+                    Upload a CSV file with lead information. We&apos;ll help you map the <br />
+                    fields and score leads based on property details.
                   </p>
+
                   <div>
-                    <button onClick={handleImportClick} className="text-xs bg-yellow-500 px-4 py-2 rounded">Import Lead</button>
+                    <button
+                      onClick={handleImportClick}
+                      className="text-xs bg-yellow-500 px-4 py-2 rounded"
+                    >
+                      Import Lead
+                    </button>
 
                     {/* Hidden file input */}
                     <input
@@ -571,8 +578,17 @@ export default function DashboardPage() {
                       style={{ display: 'none' }}
                       onChange={handleFileChange}
                     />
-                    {file && <p className="mt-2 text-gray-700 text-sm">File ready to upload: {file.name}</p>}
-                    {message && <p className="mt-4 text-green-600 text-sm font-medium">{message}</p>}
+
+                    {file && (
+                      <p className="mt-2 text-gray-700 text-sm">
+                        File ready to upload: <span className="font-medium">{file.name}</span>
+                      </p>
+                    )}
+                    {message && (
+                      <p className="mt-4 text-green-600 text-sm font-medium">
+                        {message}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-6 text-right">
                     <button
@@ -585,6 +601,7 @@ export default function DashboardPage() {
 
                 </div>
               )}
+
 
               {selectedTab === 'scoreFilter' && (
                 <>
@@ -772,51 +789,67 @@ export default function DashboardPage() {
                 </div>
               )}
               {selectedTab === 'market' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
-                    <h4 className="text-md font-semibold mb-1 text-black">Select a Lead List</h4>
-                    <p className="text-sm text-gray-600 mb-2">Choose a list for your marketing campaign</p>
-                    <select className="w-full rounded px-3 py-2 text-sm mb-3 text-black">
-                      <option>Propwire Export - 28 Properties - Jun 11, 2024 (27 leads)</option>
-                      <option>Primary Leads (2 leads)</option>
-                      <option>Cold Leads (1 lead)</option>
-                    </select>
-                    <div className="bg-white border rounded p-3 text-sm">
-                      <p className="font-medium text-gray-800 mb-1">Propwire Export - Jun 11, 2024</p>
-                      <p className="text-gray-500">No description</p>
-                      <div className="flex justify-between mt-2">
-                        <span className="text-black">Total Leads:</span>
-                        <span className="font-semibold text-black">27</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-black">High Value Leads:</span>
-                        <span className="font-semibold text-black">0</span>
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left Column: Lead List */}
+                    <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
+                      <h4 className="text-md font-semibold mb-1 text-black">Select a Lead List</h4>
+                      <p className="text-sm text-gray-600 mb-2">Choose a list for your marketing campaign</p>
+                      <select className="w-full rounded px-3 py-2 text-sm mb-3 text-black">
+                        <option>Propwire Export - 28 Properties - Jun 11, 2024 (27 leads)</option>
+                        <option>Primary Leads (2 leads)</option>
+                        <option>Cold Leads (1 lead)</option>
+                      </select>
+                      <div className="bg-white border rounded p-3 text-sm">
+                        <p className="font-medium text-gray-800 mb-1">Propwire Export - Jun 11, 2024</p>
+                        <p className="text-gray-500">No description</p>
+                        <div className="flex justify-between mt-2">
+                          <span className="text-black">Total Leads:</span>
+                          <span className="font-semibold text-black">27</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-black">High Value Leads:</span>
+                          <span className="font-semibold text-black">0</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Right Column: Marketing Channel */}
+                    <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
+                      <h4 className="text-md font-semibold mb-1 text-black">Choose Marketing Channel</h4>
+                      <p className="text-sm text-gray-600 mb-2">Select where to market this list</p>
+                      <select className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4">
+                        <option>Select marketing channel</option>
+                        <option>Campaign Manager</option>
+                        <option>Sequences</option>
+                        <option>Call Dashboard</option>
+                        <option>Email Management</option>
+                      </select>
+                      <button
+                        onClick={() => console.log('Continue to Marketing clicked')}
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-4 rounded transition"
+                      >
+                        Continue to Marketing
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
-                    <h4 className="text-md font-semibold mb-1 text-black">Choose Marketing Channel</h4>
-                    <p className="text-sm text-gray-600 mb-2">Select where to market this list</p>
-                    <select className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4">
-                      <option>Select marketing channel</option>
-                      <option>Campaign Manager</option>
-                      <option>Sequences</option>
-                      <option>Call Dashboard</option>
-                      <option>Email Management</option>
-                    </select>
+
+                  {/* Navigation Button */}
+                  <div className="mt-6">
                     <button
-                      onClick={() => console.log('Continue to Marketing clicked')}
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-4 rounded transition"
+                       onClick={() => setSelectedTab("createLists")}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 transition"
                     >
-                      Continue to Marketing
+                      Previous
                     </button>
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
