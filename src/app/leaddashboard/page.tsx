@@ -5,8 +5,14 @@ import { FileImage } from 'lucide-react';
 import Swal from 'sweetalert2';
 import Sidebar from '../dashboard/components/Sidebar';
 import Topbar from '../dashboard/components/Topbar';
-import Papa from 'papaparse';
 import DataTable from 'react-data-table-component';
+import { useRouter } from "next/navigation";
+interface LeadType {
+  id: string;
+  name: string;
+  created_at: string | Date;
+}
+
 
 interface Lead {
   id: string;
@@ -79,251 +85,115 @@ interface Lead {
   markettype?: string;
 }
 
-
-interface CsvRow {
-  "First Name"?: string;
-  "Phone 1"?: string;
-  "Score"?: string | number;
-}
 export default function DashboardPage() {
   const [selectedTab, setSelectedTab] = useState<'uploadLeads' | 'scoreFilter' | 'createLists' | 'market'>('uploadLeads');
-  const [minScore, setMinScore] = useState(50);
+  const [minScore, setMinScore] = useState(0);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [message, setMessage] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [message,] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedList, setSelectedList] = useState("");
+  const [leadstypes, setLeadstypes] = useState([]);
+  const [, setError] = useState('');
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const router = useRouter();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [minScoreThreshold, setMinScoreThreshold] = useState<number>(0);
+
+  // ✅ Add these states for tab control
+  const [isUploadSuccessful, setIsUploadSuccessful] = useState(false);
+  const [scoreFilterEnabled, setScoreFilterEnabled] = useState(false);
+  const [createListsEnabled, setCreateListsEnabled] = useState(false);
+
 
   type TabKey = 'uploadLeads' | 'scoreFilter' | 'createLists' | 'market';
 
-  const labelMap = {
+  const labelMap: Partial<Record<TabKey, string>> = {
     uploadLeads: 'Upload Leads',
-    scoreFilter: 'Score Filter',
-    createLists: 'Create Lists',
-    market: 'Market',
-  } as const;
-
+    ...(isUploadSuccessful && { scoreFilter: 'Score Filter' }),
+    ...(scoreFilterEnabled && { createLists: 'Create Lists' }),
+    ...(createListsEnabled && { market: 'Market' }),
+  };
 
 
   const toggleSelectAll = () => {
     const allSelected = selectedLeads.length === leads.length;
     setSelectedLeads(allSelected ? [] : leads.map((lead) => lead.id));
   };
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: function (results) {
-        const parsed = (results.data as CsvRow[]).map((row, index) => ({
-          id: String(Date.now() + index),
-          first_name: row["First Name"]?.trim() || "",
-          phone1: row["Phone 1"]?.trim() || "",
-          score: Number(row["Score"] || 0),
-        }));
-        setLeads(parsed);
-        setSelectedLeads([]);
-        setSelectedTab("scoreFilter");
-      },
+
+  const handleImportClick = async () => {
+    if (!selectedFile) return;
+    setIsLoading(true);
+
+    Swal.fire({
+      title: "Uploading...",
+      text: "Please wait while we import your leads.",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
     });
 
-    setFile(file);
-    setMessage('');
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const userId = localStorage.getItem('userId');
-
-    if (!userId) {
-      console.error("No userId found in localStorage");
-      Swal.fire({
-        icon: 'error',
-        title: 'Missing User ID',
-        text: 'No userId found in localStorage.',
-      });
-      return;
-    }
-
     try {
-      const response = await fetch('/api/upload-csv', {
-        method: 'POST',
-        body: formData,
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await fetch("/api/upload-csv", {
+        method: "POST",
         headers: {
-          'x-user-id': userId,
+          "x-user-id": localStorage.getItem("userId") || "",
         },
+        body: formData,
       });
 
-      const text = await response.text();
+      const data = await res.json();
+      Swal.close();
 
-      try {
-        const json = JSON.parse(text);
+      if (data.success) {
+        await Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Leads imported successfully!",
+          timer: 2000,
+          showConfirmButton: false,
+        });
 
-        if (response.status === 409) {
-          Swal.fire({
-            icon: 'warning',
-            title: ' Upload',
-            text: json.error || 'This CSV was already uploaded.',
-          }).then(() => {
-            // 🔄 Refresh the page
-            location.reload();
-          });
-        } else if (!response.ok) {
-          console.error('Upload failed:', json.error || response.statusText);
-          Swal.fire({
-            icon: 'error',
-            title: 'Upload Failed',
-            text: json.error || response.statusText,
-          }).then(() => {
-            // 🔄 Refresh the page
-            location.reload();
-          });
-        } else {
-          console.log('Upload success:', json);
-          Swal.fire({
-            icon: 'success',
-            title: 'Upload Successful',
-            text: `File uploaded successfully! ${json.inserted} new rows added.`,
-          }).then(() => {
-            // 🔄 Refresh the page
-            location.reload();
-          });
-        }
-      } catch {
-        console.error('Upload error: Invalid JSON:', text);
-        Swal.fire({
-          icon: 'error',
-          title: 'Upload Error',
-          text: 'Server responded with invalid data.',
-        }).then(() => {
-          // 🔄 Refresh the page
-          location.reload();
+        setSelectedFile(null);
+        setIsUploadSuccessful(true);
+        setSelectedTab("scoreFilter");
+      } else {
+        await Swal.fire({
+          icon: "error",
+          title: "Upload Failed",
+          text: data.message || "Failed to import leads.",
         });
       }
-    } catch (error) {
-      console.error('Upload error:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Upload Failed',
-        text: 'Something went wrong while uploading the file.',
+    } catch {
+      Swal.close();
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Something went wrong during upload.",
       });
+    } finally {
+      setIsLoading(false);
     }
-
   };
-
 
 
   useEffect(() => {
-    const fetchLeads = async () => {
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
+    const savedTab = localStorage.getItem("selectedTab") as
+      | "uploadLeads"
+      | "scoreFilter"
+      | "createLists"
+      | "market"
+      | null;
 
-      try {
-        const response = await fetch("/api/createlist", {
-          method: "GET",
-          headers: { "x-user-id": userId },
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          setLeads(data.data);
-        } else {
-          console.error("Failed to fetch leads:", data.message);
-        }
-      } catch (err) {
-        console.error("Error fetching leads:", err);
-      }
-    };
-
-    fetchLeads();
+    if (savedTab && ["uploadLeads", "scoreFilter", "createLists", "market"].includes(savedTab)) {
+      setSelectedTab(savedTab);
+      localStorage.removeItem("selectedTab");
+    }
   }, []);
-
-
-
-  const handleScoreUpdate = async () => {
-    setLoading(true); // Show loader
-
-    console.log("Raw leads:", leads);
-    console.log("Min score (selected score):", minScore, "Type:", typeof minScore);
-
-    const selectedScore = Number(minScore); // Use minScore as the selected score
-    if (isNaN(selectedScore)) {
-      console.error("❌ Invalid selected score value:", minScore);
-      setLoading(false);
-      return;
-    }
-
-    // Filter leads you want to update (optional condition — here we accept all with a valid ID)
-    const leadsToUpdate = leads
-      .filter((lead) => {
-        const isValid = lead?.id != null;
-        // console.log(`Checking lead id: ${lead.id}, valid: ${isValid}`);
-        return isValid;
-      })
-      .map((lead) => ({
-        id: lead.id,
-        score: selectedScore, // ✅ Set score to the selected score
-      }));
-
-    console.log("✅ Leads to update:", leadsToUpdate);
-
-    if (leadsToUpdate.length === 0) {
-      console.log("No leads meet the score criteria.");
-      setLoading(false);
-
-      return;
-    }
-
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      console.error("User ID not found.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/update-scores", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId,
-        },
-        body: JSON.stringify(leadsToUpdate),
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        console.log("✅ Scores updated successfully:", result);
-        Swal.fire({
-          icon: 'success',
-          title: 'Scores Updated',
-          text: 'All selected leads have been updated successfully!',
-        })
-      } else {
-        console.error("❌ Failed to update scores:", result.error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Update Failed',
-          text: result.error || 'Something went wrong while updating scores.',
-        })
-      }
-    } catch (err) {
-      console.error("🚨 Error while updating scores:", err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Network Error',
-        text: 'Could not connect to the server.',
-      })
-    } finally {
-      setLoading(false); // Hide loader
-    }
-  };
-
-
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -340,120 +210,231 @@ export default function DashboardPage() {
     fetchLeads();
   }, []);
 
-  // const handleCreateList = async () => {
-  //   setLoading(true);
+  useEffect(() => {
+    if (selectedTab === "market") {
+      const storedLeads = sessionStorage.getItem("selectedLeads");
+      const storedScore = sessionStorage.getItem("selectedMinScore");
 
-  //   const userId = localStorage.getItem("userId");
-  //   if (!userId) {
-  //     console.error("User ID not found");
-  //     setLoading(false);
+      if (storedLeads) {
+        setSelectedLeads(JSON.parse(storedLeads));
+      }
 
-  //     return;
-  //   }
-
-  //   const payload = leads
-  //     .filter((lead) => selectedLeads.includes(lead.id))
-  //     .map((lead) => ({
-  //       user_id: Number(userId),
-  //       first_name: lead.first_name || null,
-  //       last_name: lead.last_name || null,
-  //       street_address: lead.street_address || null,
-  //       city: lead.city || null,
-  //       state: lead.state || null,
-  //       zip_code: lead.zip_code || null,
-  //       mailing_street_address: lead.mailing_street_address || null,
-  //       mailing_city: lead.mailing_city || null,
-  //       mailing_state: lead.mailing_state || null,
-  //       phone1: lead.phone1 || null,
-  //       phone1_type: lead.phone1_type || null,
-  //       phone2: lead.phone2 || null,
-  //       phone2_type: lead.phone2_type || null,
-  //       phone3: lead.phone3 || null,
-  //       phone3_type: lead.phone3_type || null,
-  //       phone4: lead.phone4 || null,
-  //       phone4_type: lead.phone4_type || null,
-  //       phone5: lead.phone5 || null,
-  //       phone5_type: lead.phone5_type || null,
-  //       email1: lead.email1 || null,
-  //       email2: lead.email2 || null,
-  //       email3: lead.email3 || null,
-  //       email4: lead.email4 || null,
-  //       email5: lead.email5 || null,
-  //       social_network1: lead.social_network1 || null,
-  //       social_handle1: lead.social_handle1 || null,
-  //       social_network2: lead.social_network2 || null,
-  //       social_handle2: lead.social_handle2 || null,
-  //       apn: lead.apn || null,
-  //       vacant: lead.vacant === '1' ? 1 : 0,
-  //       absentee: lead.absentee === '1' ? 1 : 0,
-  //       occupancy: lead.occupancy || null,
-  //       ownership_type: lead.ownership_type || null,
-  //       formatted_apn: lead.formatted_apn || null,
-  //       census_tract: lead.census_tract || null,
-  //       subdivision: lead.subdivision || null,
-  //       tract_number: lead.tract_number || null,
-  //       company_flag: lead.company_flag === '1' ? 1 : 0,
-  //       owner_type: lead.owner_type || null,
-  //       primary_owner_first: lead.primary_owner_first || null,
-  //       primary_owner_middle: lead.primary_owner_middle || null,
-  //       primary_owner_last: lead.primary_owner_last || null,
-  //       secondary_owner_first: lead.secondary_owner_first || null,
-  //       secondary_owner_middle: lead.secondary_owner_middle || null,
-  //       secondary_owner_last: lead.secondary_owner_last || null,
-  //       assessor_last_sale_date: lead.assessor_last_sale_date ? new Date(lead.assessor_last_sale_date) : null,
-  //       assessor_last_sale_amount: lead.assessor_last_sale_amount ? parseFloat(lead.assessor_last_sale_amount) : null,
-  //       assessor_prior_sale_date: lead.assessor_prior_sale_date ? new Date(lead.assessor_prior_sale_date) : null,
-  //       assessor_prior_sale_amount: lead.assessor_prior_sale_amount ? parseFloat(lead.assessor_prior_sale_amount) : null,
-  //       area_building: lead.area_building || null,
-  //       living_sqft: lead.living_sqft ? parseInt(lead.living_sqft, 10) : null,
-  //       area_lot_acres: lead.area_lot_acres ? parseFloat(lead.area_lot_acres) : null,
-  //       area_lot_sf: lead.area_lot_sf ? parseInt(lead.area_lot_sf, 10) : null,
-  //       parking_garage: lead.parking_garage || null,
-  //       pool: lead.pool === '1' ? 1 : 0,
-  //       bath_count: lead.bath_count ? parseFloat(lead.bath_count) : null,
-  //       bedrooms_count: lead.bedrooms_count ? parseInt(lead.bedrooms_count, 10) : null,
-  //       stories_count: lead.stories_count ? parseInt(lead.stories_count, 10) : null,
-  //       energy: lead.energy || null,
-  //       fuel: lead.fuel || null,
-  //       score: lead.score ?? 0,
-  //       estimated_value: lead.estimated_value ? parseFloat(lead.estimated_value) : null,
-  //       estimated_min_value: lead.estimated_min_value ? parseFloat(lead.estimated_min_value) : null,
-  //       estimated_max_value: lead.estimated_max_value ? parseFloat(lead.estimated_max_value) : null,
-  //       leadtype: lead.leadtype ? parseInt(lead.leadtype, 10) : null,
-  //       markettype: lead.markettype || null,
-  //     }));
-
-  //   try {
-  //     const response = await fetch("/api/save-leads", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         "x-user-id": userId,
-  //       },
-  //       body: JSON.stringify({ leads: payload }), // ✅ FIXED
-  //     });
-
-  //     const result = await response.json();
-  //     if (response.ok) {
-  //       console.log("✅ Leads saved successfully:", result);
-  //     } else {
-  //       console.error("❌ Failed to save leads:", result);
-  //     }
-  //   } catch (err) {
-  //     console.error("🚨 Error saving leads:", err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      if (storedScore) {
+        setMinScoreThreshold(Number(storedScore)); // assuming setMinScoreThreshold updates state
+      }
+    }
+  }, [selectedTab]);
 
 
-  // const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const handleContinueMarketing = async () => {
+    // Validate fields before setting loading state
+    if (!selectedList || !selectedChannel) {
+      Swal.fire("Missing info", "Select both list and marketing channel", "warning");
+      return;
+    }
+    console.log("🟡 Submitting leads with list:", selectedList, "and channel:", selectedChannel);
+    const storedScore = sessionStorage.getItem("selectedMinScore");
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing User ID",
+        text: "User ID not found. Please log in again.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setSelectedTab("market");
+
+    const payload = leads
+      .filter((lead) => selectedLeads.includes(lead.id))
+      .map((lead) => ({
+        user_id: Number(userId),
+        first_name: lead.first_name || null,
+        last_name: lead.last_name || null,
+        street_address: lead.street_address || null,
+        city: lead.city || null,
+        state: lead.state || null,
+        zip_code: lead.zip_code || null,
+        mailing_street_address: lead.mailing_street_address || null,
+        mailing_city: lead.mailing_city || null,
+        mailing_state: lead.mailing_state || null,
+        phone1: lead.phone1 || null,
+        phone1_type: lead.phone1_type || null,
+        phone2: lead.phone2 || null,
+        phone2_type: lead.phone2_type || null,
+        phone3: lead.phone3 || null,
+        phone3_type: lead.phone3_type || null,
+        phone4: lead.phone4 || null,
+        phone4_type: lead.phone4_type || null,
+        phone5: lead.phone5 || null,
+        phone5_type: lead.phone5_type || null,
+        email1: lead.email1 || null,
+        email2: lead.email2 || null,
+        email3: lead.email3 || null,
+        email4: lead.email4 || null,
+        email5: lead.email5 || null,
+        social_network1: lead.social_network1 || null,
+        social_handle1: lead.social_handle1 || null,
+        social_network2: lead.social_network2 || null,
+        social_handle2: lead.social_handle2 || null,
+        apn: lead.apn || null,
+        vacant: lead.vacant === "1" ? 1 : 0,
+        absentee: lead.absentee === "1" ? 1 : 0,
+        occupancy: lead.occupancy || null,
+        ownership_type: lead.ownership_type || null,
+        formatted_apn: lead.formatted_apn || null,
+        census_tract: lead.census_tract || null,
+        subdivision: lead.subdivision || null,
+        tract_number: lead.tract_number || null,
+        company_flag: lead.company_flag === "1" ? 1 : 0,
+        owner_type: lead.owner_type || null,
+        primary_owner_first: lead.primary_owner_first || null,
+        primary_owner_middle: lead.primary_owner_middle || null,
+        primary_owner_last: lead.primary_owner_last || null,
+        secondary_owner_first: lead.secondary_owner_first || null,
+        secondary_owner_middle: lead.secondary_owner_middle || null,
+        secondary_owner_last: lead.secondary_owner_last || null,
+        assessor_last_sale_date: lead.assessor_last_sale_date
+          ? new Date(lead.assessor_last_sale_date)
+          : null,
+        assessor_last_sale_amount: lead.assessor_last_sale_amount
+          ? parseFloat(lead.assessor_last_sale_amount)
+          : null,
+        assessor_prior_sale_date: lead.assessor_prior_sale_date
+          ? new Date(lead.assessor_prior_sale_date)
+          : null,
+        assessor_prior_sale_amount: lead.assessor_prior_sale_amount
+          ? parseFloat(lead.assessor_prior_sale_amount)
+          : null,
+        area_building: lead.area_building || null,
+        living_sqft: lead.living_sqft ? parseInt(lead.living_sqft, 10) : null,
+        area_lot_acres: lead.area_lot_acres ? parseFloat(lead.area_lot_acres) : null,
+        area_lot_sf: lead.area_lot_sf ? parseInt(lead.area_lot_sf, 10) : null,
+        parking_garage: lead.parking_garage || null,
+        pool: lead.pool === "1" ? 1 : 0,
+        bath_count: lead.bath_count ? parseFloat(lead.bath_count) : null,
+        bedrooms_count: lead.bedrooms_count ? parseInt(lead.bedrooms_count, 10) : null,
+        stories_count: lead.stories_count ? parseInt(lead.stories_count, 10) : null,
+        energy: lead.energy || null,
+        fuel: lead.fuel || null,
+        score: storedScore,
+        estimated_value: lead.estimated_value
+          ? parseFloat(lead.estimated_value)
+          : null,
+        estimated_min_value: lead.estimated_min_value
+          ? parseFloat(lead.estimated_min_value)
+          : null,
+        estimated_max_value: lead.estimated_max_value
+          ? parseFloat(lead.estimated_max_value)
+          : null,
+        leadtype: Number(selectedList) || 0,
+        markettype: selectedChannel || "",
+
+      }));
+
+    try {
+      const response = await fetch("/api/save-leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify({ leads: payload }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "Leads Saved",
+          text: `${payload.length} leads saved successfully.`,
+        });
+
+        // Clear session
+        sessionStorage.removeItem("selectedLeads");
+        sessionStorage.removeItem("selectedMinScore");
+
+        // Redirect
+        router.push("/leadlist");
+      } else {
+        console.error("❌ Failed to save leads:", result);
+        Swal.fire({
+          icon: "error",
+          title: "Save Failed",
+          text: result.message || "Failed to save leads.",
+        });
+      }
+    } catch (err) {
+      console.error("🚨 Error saving leads:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Network Error",
+        text: "Something went wrong while saving leads.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleScoreNext = () => {
+    if (minScore <= 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Select Score",
+        text: "Please choose a minimum score before proceeding.",
+      });
+      return;
+    }
+
+    sessionStorage.setItem("selectedMinScore", minScore.toString());
+    setScoreFilterEnabled(true);
+    setSelectedTab("createLists");
+  };
+
+
+  // ✅ Create Lists Next button
+  const handleCreateListAndGoNext = async () => {
+    if (selectedLeads.length === 0) {
+      await Swal.fire({
+        icon: "warning",
+        title: "No Leads Selected",
+        text: "Please select at least one lead before proceeding.",
+      });
+      return;
+    }
+
+    sessionStorage.setItem("selectedLeads", JSON.stringify(selectedLeads));
+    sessionStorage.setItem("selectedMinScore", String(minScoreThreshold));
+    setCreateListsEnabled(true);
+    setSelectedTab("market");
+  };
+
 
   const toggleLead = (id: string) => {
     setSelectedLeads((prev) =>
       prev.includes(id) ? prev.filter((leadId) => leadId !== id) : [...prev, id]
     );
   };
+
+  // const handleCreateListAndGoNext = () => {
+  //   sessionStorage.setItem("selectedLeads", JSON.stringify(selectedLeads));
+  //   sessionStorage.setItem("selectedMinScore", String(minScoreThreshold));
+  //   setSelectedTab("market");
+  // };
+
+  useEffect(() => {
+    if (selectedTab === "createLists") {
+      const storedScore = sessionStorage.getItem("selectedMinScore");
+      if (storedScore) {
+        const parsedScore = parseInt(storedScore, 10);
+        setMinScoreThreshold(parsedScore);
+        console.log("session score", parsedScore);
+      }
+    }
+  }, [selectedTab, leads]);
 
   const columns = [
     {
@@ -479,31 +460,75 @@ export default function DashboardPage() {
     {
       name: 'Status',
       cell: () => (
-        <span className="bg-blue-100 text-blue-300 px-2 py-1 text-xs rounded">
+        <span className="bg-orange-300 text-white px-2 py-1 text-xs rounded">
           pending
         </span>
       ),
     },
     {
       name: 'Score',
-      cell: (row: Lead) => (
-        <span className="bg-yellow-100 text-yellow-600 px-2 py-1 text-xs rounded">
-          {row.score}
-        </span>
-      ),
+      cell: (row: Lead) => {
+        const isQualified = typeof row.score === "number" && row.score >= minScoreThreshold;
+
+        return (
+          <span
+            className={`px-2 py-1 text-xs rounded ${isQualified
+              ? "bg-green-100 text-green-700 font-bold"
+              : "bg-yellow-100 text-yellow-600"
+              }`}
+          >
+            {sessionStorage.getItem("selectedMinScore")}
+          </span>
+        );
+      },
     },
-  ];
+  ]
 
-  const handleCreateList = () => {
-  if (selectedLeads.length === 0) return;
 
-    Swal.fire({
-    title: 'Success!',
-    text: `You have created a list with ${selectedLeads.length} leads.`,
-    icon: 'success',
-    confirmButtonText: 'OK',
-  });
-};
+  useEffect(() => {
+    const fetchLeadsTypes = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const userId = localStorage.getItem('userId');
+        console.log("sjdgjs", userId);
+        if (!userId) {
+          throw new Error("User ID not found in localStorage");
+        }
+
+        const res = await fetch('/api/leadtype', {
+          method: 'GET',
+          headers: {
+            'x-user-id': userId,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch lead types');
+        }
+
+        const json = await res.json();
+        setLeadstypes(json.data || []);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message || 'An error occurred');
+        } else {
+          setError('An unknown error occurred');
+        }
+      } finally {
+        setLoading(false);
+      }
+
+    };
+
+    // ✅ Call only when client-side
+    if (typeof window !== 'undefined') {
+      fetchLeadsTypes();
+    }
+  }, []);
+
+
 
 
   return (
@@ -525,8 +550,8 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold mb-4 text-black">Lead Dashboard</h2>
             <div className="flex justify-end mb-4">
               <a
-                href="/files/prop99.csv"
-                download="prop99.csv"
+                href="/files/sample.csv"
+                download="sample.csv"
                 className="px-2 py-2 text-xs bg-yellow-400  rounded hover:bg-yellow-500"
               >
                 Sample Download
@@ -555,50 +580,74 @@ export default function DashboardPage() {
             <div className="pt-6 mt-6">
               {selectedTab === 'uploadLeads' && (
                 <div className="text-center bg-gray-50 rounded-md shadow-inner p-6">
-                  <FileImage className="mx-auto text-yellow-500 w-14 h-14 mb-4" />
-                  <h6 className="text-black text-xs font-bold">Import Leads</h6>
+                  {/* File Selector */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="cursor-pointer text-center"
+                  >
+                    <FileImage className="mx-auto text-yellow-500 w-14 h-14 mb-2" />
+                    <h6 className="text-black font-20 font-bold">Select CSV</h6>
+
+                    {selectedFile && (
+                      <p className="text-xs text-gray-600 mt-2">📁 {selectedFile.name}</p>
+                    )}
+                  </div>
+
                   <p className="text-xs text-gray-700 mb-6">
                     Upload a CSV file with lead information. We&apos;ll help you map the <br />
                     fields and score leads based on property details.
                   </p>
 
-                  <div>
-                    <button
-                      onClick={handleImportClick}
-                      className="text-xs bg-yellow-500 px-4 py-2 rounded"
-                    >
-                      Import Lead
-                    </button>
+                  {/* Hidden File Input */}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onClick={(e) => {
+                      (e.target as HTMLInputElement).value = "";
+                    }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                      }
+                    }}
+                  />
 
-                    {/* Hidden file input */}
-                    <input
-                      type="file"
-                      accept=".csv"
-                      ref={fileInputRef}
-                      style={{ display: 'none' }}
-                      onChange={handleFileChange}
-                    />
+                  {/* Feedback Message */}
+                  {message && (
+                    <p className="mt-4 text-green-600 text-sm font-medium">{message}</p>
+                  )}
 
-                    {file && (
-                      <p className="mt-2 text-gray-700 text-sm">
-                        File ready to upload: <span className="font-medium">{file.name}</span>
-                      </p>
-                    )}
-                    {message && (
-                      <p className="mt-4 text-green-600 text-sm font-medium">
-                        {message}
-                      </p>
-                    )}
-                  </div>
+                  {/* Next Button that imports file */}
                   <div className="mt-6 text-right">
-                    <button
-                      onClick={() => setSelectedTab("scoreFilter")}
-                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
-                    >
-                      Next →
-                    </button>
+                    <div className="mt-6 text-right">
+                      {!isUploadSuccessful ? (
+                        <button
+                          onClick={handleImportClick}
+                          className="px-4 py-2 text-xs text-white bg-blue-600 rounded hover:bg-blue-500"
+                          disabled={isLoading || !selectedFile}
+                        >
+                          {isLoading ? (
+                            <>
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2" />
+                              Importing...
+                            </>
+                          ) : (
+                            "Upload CSV"
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setSelectedTab("scoreFilter")}
+                          className="px-4 py-2 text-xs text-white bg-green-600 rounded hover:bg-green-500"
+                        >
+                          Save & Next →
+                        </button>
+                      )}
+                    </div>
                   </div>
-
                 </div>
               )}
 
@@ -641,33 +690,17 @@ export default function DashboardPage() {
                         {leads.filter((lead) => typeof lead.score === "number" && lead.score >= minScore).length} leads match
                       </p>
 
-
-                      <div className="mt-4 flex space-x-3">
-                        <button className="px-4 py-2 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-100 transition">Show Preview</button>
-                        <button
-                          onClick={() => {
-                            handleScoreUpdate();
-                            // setSelectedTab("createLists");
-                          }}
-                          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs transition"
-                        >
-                          Continue to Selection
-                        </button>
-                      </div>
                     </div>
                   </div>
-                  <div className="mt-6 flex justify-between text-xs">
+                  <div className="mt-6 flex justify-end text-xs">
                     <button
-                      onClick={() => setSelectedTab("uploadLeads")}
-                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-gray-500 bg-gray-400"
+                      onClick={handleScoreNext}
+                      className={`px-4 py-2 text-xs text-white rounded transition-all duration-200 ${minScore > 0
+                        ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
+                        : 'bg-gray-300 cursor-not-allowed'
+                        }`}
                     >
-                      ← Previous
-                    </button>
-                    <button
-                      onClick={() => setSelectedTab("createLists")}
-                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
-                    >
-                      Next →
+                      Save & Next →
                     </button>
                   </div>
 
@@ -676,11 +709,29 @@ export default function DashboardPage() {
 
               {selectedTab === "createLists" && (
                 <div>
+                  {/* Top Navigation */}
+                  <div className="flex justify-between text-xs py-4">
+                    <button
+                      onClick={() => setSelectedTab("scoreFilter")}
+                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-blue-500 bg-blue-600"
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      onClick={handleCreateListAndGoNext}
+                      className="px-4 py-2 text-xs text-white bg-blue-600 rounded hover:bg-blue-500"
+                    >
+                      Save & Next →
+                    </button>
+                  </div>
+
+                  {/* Lead Selection Panel */}
                   <div className="bg-orange-50 rounded border mb-4 shadow-lg px-2 py-2">
                     <h6 className="text-black font-bold py-2">Select leads to create a new list</h6>
                     <p className="text-xs text-gray-700 mb-2 ms-2">
                       Currently showing {leads.length} leads
                     </p>
+
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                         <input
@@ -690,6 +741,9 @@ export default function DashboardPage() {
                         />
                         <span>Select All</span>
                       </label>
+
+
+
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => setSelectedLeads([])}
@@ -697,67 +751,14 @@ export default function DashboardPage() {
                         >
                           Clear Selection
                         </button>
-                        {/* <button
-                          disabled={selectedLeads.length === 0}
-                          className={`text-sm px-4 py-2 rounded text-white transition ${selectedLeads.length === 0
-                            ? "bg-yellow-300 cursor-not-allowed"
-                            : "bg-yellow-500 hover:bg-yellow-600"
-                            }`}
-                        >
-                          Create List ({selectedLeads.length})
-                        </button> */}
-                        <button
-                          onClick={handleCreateList}
-                          disabled={selectedLeads.length === 0}
-                          className={`text-sm px-4 py-2 rounded text-white transition ${selectedLeads.length === 0
-                              ? "bg-yellow-500 cursor-not-allowed"
-                              : "bg-yellow-500 hover:bg-yellow-400"
-                            }`}
-                        >
-                          Create List ({selectedLeads.length})
-                        </button>
-
 
                       </div>
                     </div>
                   </div>
 
-                  {/* Lead Table */}
+                  {/* Data Table */}
                   <div className="overflow-x-auto rounded">
-                    {/* <table className="min-w-full text-sm text-left text-gray-700">
-                      <thead className="bg-gray-100 text-xs text-gray-600">
-                        <tr>
-                          <th className="px-4 py-2">Select</th>
-                          <th className="px-4 py-2">Lead</th>
-                          <th className="px-4 py-2">Contact</th>
-                          <th className="px-4 py-2">Status</th>
-                          <th className="px-4 py-2">Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leads.map((lead) => (
-                          <tr key={lead.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedLeads.includes(lead.id)}
-                              // onChange={() => toggleLead(lead.id)}
-                              />
-                            </td>
-                            <td className="px-4 py-2">{lead.first_name?.trim() || ""}</td>
-                            <td className="px-4 py-2">{lead.phone1?.trim() || ""}</td>
-                            <td className="px-4 py-2">
-                              <span className="bg-blue-100 text-blue-700 px-2 py-1 text-xs rounded">pending</span>
-                            </td>
-                            <td className="px-4 py-2">
-                              <span className="bg-yellow-100 text-yellow-600 px-2 py-1 text-xs rounded">
-                                {lead.score}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table> */}
+
                     <div className="bg-white rounded shadow-sm p-4">
                       <DataTable
                         columns={columns}
@@ -769,25 +770,26 @@ export default function DashboardPage() {
                         persistTableHead
                       />
                     </div>
-
                   </div>
 
+                  {/* Bottom Navigation */}
                   <div className="mt-6 flex justify-between text-xs">
                     <button
                       onClick={() => setSelectedTab("scoreFilter")}
-                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-gray-500 bg-gray-400"
+                      className="px-4 py-2 text-xs text-white border border-gray-300 rounded hover:bg-blue-500 bg-blue-600"
                     >
                       ← Previous
                     </button>
                     <button
-                      onClick={() => setSelectedTab("market")}
-                      className="px-4 py-2 text-xs text-white bg-gray-400 rounded hover:bg-gray-500"
+                      onClick={handleCreateListAndGoNext}
+                      className="px-4 py-2 text-xs text-white bg-blue-600 rounded hover:bg-blue-500"
                     >
-                      Next →
+                      Save & Next →
                     </button>
                   </div>
                 </div>
               )}
+
               {selectedTab === 'market' && (
                 <div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -795,53 +797,54 @@ export default function DashboardPage() {
                     <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
                       <h4 className="text-md font-semibold mb-1 text-black">Select a Lead List</h4>
                       <p className="text-sm text-gray-600 mb-2">Choose a list for your marketing campaign</p>
-                      <select className="w-full rounded px-3 py-2 text-sm mb-3 text-black">
-                        <option>Propwire Export - 28 Properties - Jun 11, 2024 (27 leads)</option>
-                        <option>Primary Leads (2 leads)</option>
-                        <option>Cold Leads (1 lead)</option>
+
+                      <select
+                        className="w-full rounded px-3 py-2 text-sm mb-3 text-black"
+                        value={selectedList}
+                        onChange={(e) => setSelectedList(e.target.value)}
+                      >
+                        <option value="">-- Select a Lead List --</option>
+
+                        {leadstypes.map((lead: LeadType) => (
+                          <option key={lead.id} value={lead.id}>
+                            {lead.name} ({new Date(lead.created_at).toLocaleDateString()})
+                          </option>
+                        ))}
                       </select>
-                      <div className="bg-white border rounded p-3 text-sm">
-                        <p className="font-medium text-gray-800 mb-1">Propwire Export - Jun 11, 2024</p>
-                        <p className="text-gray-500">No description</p>
-                        <div className="flex justify-between mt-2">
-                          <span className="text-black">Total Leads:</span>
-                          <span className="font-semibold text-black">27</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-black">High Value Leads:</span>
-                          <span className="font-semibold text-black">0</span>
-                        </div>
-                      </div>
                     </div>
+
 
                     {/* Right Column: Marketing Channel */}
                     <div className="bg-gray-50 rounded-lg p-4 shadow-lg">
                       <h4 className="text-md font-semibold mb-1 text-black">Choose Marketing Channel</h4>
                       <p className="text-sm text-gray-600 mb-2">Select where to market this list</p>
-                      <select className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4">
-                        <option>Select marketing channel</option>
-                        <option>Campaign Manager</option>
-                        <option>Sequences</option>
-                        <option>Call Dashboard</option>
-                        <option>Email Management</option>
-                      </select>
-                      <button
-                        onClick={() => console.log('Continue to Marketing clicked')}
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-4 rounded transition"
+                      <select
+                        className="w-full rounded px-3 py-2 text-sm text-black border border-gray-300 mb-4"
+                        value={selectedChannel}
+                        onChange={(e) => setSelectedChannel(e.target.value)}
                       >
-                        Continue to Marketing
-                      </button>
+                        <option value="">Select marketing channel</option>
+                        <option value="Campaign Manager">Campaign Manager</option>
+                        <option value="Sequences">Sequences</option>
+                        <option value="Call Dashboard">Call Dashboard</option>
+                        <option value="Email Management">Email Management</option>
+                      </select>
+
+
                     </div>
                   </div>
-
-                  {/* Navigation Button */}
-                  <div className="mt-6">
+                  <div className="mt-6 flex justify-end">
                     <button
-                       onClick={() => setSelectedTab("createLists")}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 transition"
+                      onClick={handleContinueMarketing}
+                      disabled={loading}
+                      className={`w-30 bg-yellow-500 text-black text-sm font-medium py-2 px-4 rounded transition ${isLoading ? "cursor-not-allowed opacity-70" : "hover:bg-yellow-700"
+                        }`}
                     >
-                      Previous
+                      {isLoading ? "Loading..." : "Final Submit"}
                     </button>
+
+
+
                   </div>
                 </div>
               )}

@@ -10,6 +10,7 @@ import {
   date,
   decimal,
   datetime,
+  mysqlEnum,
 } from 'drizzle-orm/mysql-core';
 
 // Users Table
@@ -146,14 +147,17 @@ export const leads = mysqlTable("leads", {
   estimated_min_value: decimal("estimated_min_value", { precision: 15, scale: 2 }),
   estimated_max_value: decimal("estimated_max_value", { precision: 15, scale: 2 }),
   leadtype: int("leadtype"),
-  markettype: varchar("markettype", { length: 50 }),
+  markettype: text("markettype"),
+  status: mysqlEnum("status", ["active", "pending", "hold", "process", "customer"]).default("pending"),
+
 });
 
 export const leadtype = mysqlTable("leadtype", {
   id: int("id").primaryKey().autoincrement(),
-  name: varchar("name", { length: 255 }).notNull(),
-  createdAt: datetime("created_at").notNull(),
-  status: int("status"), // optional field
+  name: varchar("name", { length: 255 }),
+  created_at: datetime("created_at"), // 👈 matches DB column name
+  status: int("status"),
+  user_id: int("user_id"),
 });
 
 
@@ -220,7 +224,7 @@ export const tempLeads = mysqlTable("temp_leads", {
   stories_count: int("stories_count"),
   energy: varchar("energy", { length: 50 }),
   fuel: varchar("fuel", { length: 50 }),
-  score: int("score").default(1),
+  status: mysqlEnum("status", ["active", "pending", "hold", "process", "customer"]).notNull().default("pending"),
   estimated_value: decimal("estimated_value", { precision: 15, scale: 2 }),
   estimated_min_value: decimal("estimated_min_value", { precision: 15, scale: 2 }),
   estimated_max_value: decimal("estimated_max_value", { precision: 15, scale: 2 })

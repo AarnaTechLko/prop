@@ -100,6 +100,8 @@ export default function DashboardPage() {
     }
   };
 
+  
+
   return (
     <div className="flex h-screen w-screen">
       <Sidebar />
@@ -175,7 +177,7 @@ export default function DashboardPage() {
             ) : (
               <div className="overflow-x-auto w-full">
                 <table className="min-w-full text-xs text-left border border-gray-200 w-full">
-                  <thead className="bg-gray-100 text-gray-600">
+                  <thead className="bg-gray-500 text-white">
                     <tr>
                       <th className="px-4 py-2 border border-gray-200">#</th>
                       <th className="px-4 py-2 border border-gray-200">Name</th>

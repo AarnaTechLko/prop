@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Swal from 'sweetalert2';
 import {
   Eye, EyeOff, Mail, Lock, Phone, User
 } from "lucide-react";
@@ -66,32 +67,47 @@ export default function AuthPage() {
       formData.append("password", password);
       formData.append("mobile", mobile);
 
-      try {
-        const res = await fetch("/api/register", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json();
+     try {
+  const res = await fetch("/api/register", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
 
-        if (!res.ok) {
-          setMessage(data.error || "Registration failed");
-          setMessageType("error");
-        } else {
-          setMessage("Registration successful! Please login Here");
-          setMessageType("success");
-        //   router.push("/dashboard");
-          setName("");
-          setEmail("");
-          setPassword("");
-          setConfirmPassword("");
-          setMobile("");
-        }
-      } catch {
-        setMessage("Something went wrong. Please try again.");
-        setMessageType("error");
-      } finally {
-        setLoading(false);
-      }
+  if (!res.ok) {
+    await Swal.fire({
+      icon: "error",
+      title: "Registration Failed",
+      text: data.error || "Please try again.",
+    });
+  } else {
+    await Swal.fire({
+      icon: "success",
+      title: "Registration Successful!",
+      text: "Please login with your credentials.",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+
+    setName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setMobile("");
+
+    setTab("login"); // ⬅️ Go to login tab
+  }
+} catch (err) {
+  console.error("Registration error:", err);
+  await Swal.fire({
+    icon: "error",
+    title: "Oops!",
+    text: "Something went wrong. Please try again.",
+  });
+} finally {
+  setLoading(false);
+}
+
     } else {
       try {
         const res = await fetch("/api/login", {
@@ -124,40 +140,40 @@ export default function AuthPage() {
   };
 
   const handleForgotPassword = async () => {
-  if (!forgotEmail) {
-    setForgotMessage("Please enter your email");
-    setForgotType("error");
-    return;
-  }
-  setForgotLoading(true);
-  try {
-    const res = await fetch("/api/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: forgotEmail }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setForgotMessage(data.error || "This Email is not registered on our Platform!");
+    if (!forgotEmail) {
+      setForgotMessage("Please enter your email");
       setForgotType("error");
-    } else {
-      setForgotMessage(data.message);
-      setForgotType("success");
-
-      setTimeout(() => {
-        setShowForgot(false);
-        //router.push("/dashboard"); // 🔁 redirect instead of reload
-      }, 1000);
+      return;
     }
-  } catch {
-    setForgotMessage("Something went wrong.");
-    setForgotType("error");
-  } finally {
-    setForgotLoading(false);
-  }
-};
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setForgotMessage(data.error || "This Email is not registered on our Platform!");
+        setForgotType("error");
+      } else {
+        setForgotMessage(data.message);
+        setForgotType("success");
+
+        setTimeout(() => {
+          setShowForgot(false);
+          //router.push("/dashboard"); // 🔁 redirect instead of reload
+        }, 1000);
+      }
+    } catch {
+      setForgotMessage("Something went wrong.");
+      setForgotType("error");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
 
   return (

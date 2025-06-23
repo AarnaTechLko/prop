@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../dashboard/components/Sidebar";
 import Topbar from "../../dashboard/components/Topbar";
+import Swal from 'sweetalert2';
 
 const initialUserData = {
   name: "",
@@ -40,43 +41,57 @@ export default function EditProfilePage() {
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const userId = localStorage.getItem("userId");
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId || "",
-        },
-        body: JSON.stringify(formData),
+  e.preventDefault();
+  try {
+    const userId = localStorage.getItem("userId");
+    const response = await fetch("/api/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": userId || "",
+      },
+      body: JSON.stringify(formData),
+    });
+
+    if (response.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Profile Updated',
+        text: 'Your profile has been successfully updated!',
+      }).then(() => {
+        router.push("/profile"); // ✅ Only after OK clicked
       });
-      if (response.ok) {
-        router.push("/profile-settings");
-      } else {
-        const errorData = await response.json();
-        alert("Error: " + errorData.error);
-      }
-    } catch (err) {
-      console.error("Error:", err);
-      alert("Failed to update profile.");
+    } else {
+      const errorData = await response.json();
+      Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: errorData.error || 'An error occurred while updating the profile.',
+      });
     }
-  };
+  } catch (err) {
+    console.error("Error:", err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Something went wrong. Please try again later.',
+    });
+  }
+};
+
 
   if (loading) return <div className="text-black p-4">Loading...</div>;
 
   return (
-    <div className="flex min-h-screen bg-gray-200 text-black">
-      <div className="w-64 fixed h-full bg-white z-10">
-        <Sidebar />
-      </div>
-      <div className="flex flex-col flex-1 ml-64">
+    <div className="flex h-screen bg-gray-100 overflow-x-hidden">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-x-hidden">
         <Topbar />
         <main className="flex-1 p-6">
           <div className="max-w-3xl mx-auto  rounded-md">
@@ -107,7 +122,7 @@ export default function EditProfilePage() {
                     name="email"
                     value={formData.email}
                     readOnly
-                    className="w-full rounded border border border-black bg-white  p-2 cursor-not-allowed"
+                    className="w-full rounded border border-black bg-white  p-2 cursor-not-allowed"
                     type="email"
                   />
                 </div>
@@ -121,7 +136,7 @@ export default function EditProfilePage() {
                     name="mobile"
                     value={formData.mobile}
                     readOnly
-                    className="w-full rounded border border border-black bg-white  p-2 cursor-not-allowed"
+                    className="w-full rounded  border border-black bg-white  p-2 cursor-not-allowed"
                     type="tel"
                   />
                 </div>
@@ -133,7 +148,7 @@ export default function EditProfilePage() {
                   name="address"
                   value={formData.address || ""}
                   onChange={handleChange}
-                  className="w-full rounded border border border-black bg-white  p-2"
+                  className="w-full rounded  border border-black bg-white  p-2"
                   rows={3}
                 />
 

@@ -1,34 +1,36 @@
-'use client'
-import { useState } from 'react'
-import { Folder } from 'lucide-react';
+'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   LayoutDashboard,
   Activity,
   List,
   User,
- 
   Users,
-} from 'lucide-react'
-import Link from 'next/link'
+  Folder,
+Power,
+} from 'lucide-react';
 
-const menu = [
-  { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', color: 'text-yellow-400' },
-  { name: 'Inbound OS', icon: Activity, href: '/inbound', color: 'text-green-500', badge: 'New', badgeColor: 'bg-green-500' },
-  { name: 'Lead Lists', icon: List, href: '/leadlist', color: 'text-blue-500', badge: 'New', badgeColor: 'bg-blue-500' },
-  
-  { name: 'Lead Dashboard', icon: Users, href: '/leaddashboard', color: 'text-blue-600' },
-  { name: 'Properties', icon: Folder, href: '/properties', color: 'text-blue-800' },
+const Sidebar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
 
+  const handleLogout = () => {
+    localStorage.clear(); // or remove just the token if needed
+    router.push('/register');
+  };
 
-  // SETTINGS
-  { name: 'My Profile', icon: User, href: '/profile', color: 'text-yellow-500', },
-  { name: 'All Settings', icon: LayoutDashboard, href: '/settings' },
-
-]
-
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false)
+  const menu = [
+    { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', color: 'text-yellow-400' },
+    { name: 'Inbound OS', icon: Activity, href: '/inbound', color: 'text-green-500', badge: 'New', badgeColor: 'bg-green-500' },
+    { name: 'Lead Lists', icon: List, href: '/leadlist', color: 'text-blue-500', badge: 'New', badgeColor: 'bg-blue-500' },
+    { name: 'Lead Dashboard', icon: Users, href: '/leaddashboard', color: 'text-blue-600' },
+    { name: 'Properties', icon: Folder, href: '/properties', color: 'text-blue-800' },
+    { name: 'My Profile', icon: User, href: '/profile', color: 'text-yellow-500' },
+    // { name: 'All Settings', icon: LayoutDashboard, href: '/settings' },
+  ];
 
   return (
     <>
@@ -58,29 +60,27 @@ export default function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-                fixed inset-y-0 left-0 z-40 w-56 bg-[#0c111d] p-4 border-r border-gray-800
-               transform transition-transform duration-300 ease-in-out
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-               md:translate-x-0 md:static md:flex-shrink-0
-              flex flex-col
-             overflow-y-auto
-                `}
-              >
-
+          fixed inset-y-0 left-0 z-40 w-56 bg-[#0c111d] p-4 border-r border-gray-800
+          transform transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:static md:flex-shrink-0
+          flex flex-col overflow-y-auto
+        `}
+      >
         <div className="text-xl font-bold text-white mb-8 flex items-center gap-2 select-none">
           <span className="text-yellow-400 text-2xl">📂</span> LANDOS
         </div>
 
-        <nav className="">
+        <nav className="flex flex-col gap-1">
           {menu.map(({ name, icon: Icon, href, badge, badgeColor, color }) => (
             <Link
               key={name}
               href={href}
-              onClick={() => setIsOpen(false)} // close sidebar on mobile click
-              className="flex items-center justify-between px-1 py-2 rounded-md text-white hover:bg-gray-800 text-xs group transition-colors"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-3 py-2 rounded-md text-white hover:bg-gray-800 text-xs group transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Icon className={`w-5 h-5 ${color || 'text-white'} `} />
+                <Icon className={`w-5 h-5 ${color || 'text-white'}`} />
                 <span>{name}</span>
               </div>
               {badge && (
@@ -90,6 +90,20 @@ export default function Sidebar() {
               )}
             </Link>
           ))}
+          <button
+  onClick={() => {
+    handleLogout();
+    setIsOpen(false);
+  }}
+  className="flex items-center w-30 px-4 py-2 bg-red-400 text-white mt-4 text-sm hover:bg-red-500 hover:text-white rounded-md transition-all"
+>
+   <Power className="w-5 h-5 mr-2" />
+  <span className="font-medium">Logout</span>
+</button>
+
+
+
+
         </nav>
       </aside>
 
@@ -98,9 +112,10 @@ export default function Sidebar() {
         <div
           onClick={() => setIsOpen(false)}
           className="fixed inset-0 z-30 bg-black bg-opacity-50 md:hidden"
-          aria-hidden="true"
         />
       )}
     </>
-  )
-}
+  );
+};
+
+export default Sidebar;
